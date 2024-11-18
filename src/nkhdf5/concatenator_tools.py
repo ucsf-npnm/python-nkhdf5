@@ -17,6 +17,14 @@ import ast
 
 # Custom Functions #
 
+##Get paths to each edf file in patient's directory
+def GetFilePaths(FileDirectory, FileFormat):
+    FileNames = sorted(filter(lambda x: True if FileFormat in x else False, os.listdir(FileDirectory)))
+    FilePaths = []
+    for i in range(len(FileNames)):
+        FilePaths.append(pathlib.Path(FileDirectory, FileNames[i]))
+    return FilePaths
+
 ##Find subset of files (EDF or HDF5) needed to create biomarker recordings
 def FilesForBiomarker(FinalDuration, FileFormat, SurveyTimes, DataFrame):
     FilesForBiomarkerList = []
@@ -26,7 +34,7 @@ def FilesForBiomarker(FinalDuration, FileFormat, SurveyTimes, DataFrame):
     times2 = DataFrame.loc[:,['edf_name', 'h5_name', 'edf_end']].rename(columns={'edf_end':'edf_start'})
     TargetTimes = pd.concat([times1, times2], ignore_index=True)
     TargetTimes = TargetTimes.sort_values(by='edf_start').reset_index(drop=True)
-    TargetTimes['edf_start'] = pd.to_datetime(TargetTimes['edf_start'])
+    TargetTimes['edf_start'] = pd.to_datetime(TargetTimes['edf_start'], format='mixed')
     for i in range(len(SurveyTimes)):
         mask = (TargetTimes['edf_start'] >= StartRec[i]) & (TargetTimes['edf_start'] <= SurveyTimes[i])
         if FileFormat == 'EDF':

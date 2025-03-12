@@ -29,17 +29,19 @@ def get_edf_list(edf_dir):
     edf_list = sorted(filter(lambda x: True if 'edf' in x else False, os.listdir(edf_dir)))
     return edf_list
 
-#Extracts metadata, timeseries and raw data from EDF file
+#Extracts metadata and timeseries from each EDF file and compiles it into a dictionary 
 def edf_reader(edf_dir, edf_fn):
 
     #Read EDF file
     raw = mne.io.read_raw_edf(os.path.join(edf_dir, edf_fn))
-        
+    
+    #Extract available metadata
     edf_len = timedelta(seconds=len(raw)/raw.info['sfreq']) # seconds
     edf_start = raw.info['meas_date']
     edf_end = edf_start + edf_len
     ch_names_clean = [ch.split('-')[0].split('POL ')[1].replace(" ", "") for ch in raw.ch_names]
-    #Assign channel type
+
+    #Identify channel type (ieeg, scalp, ekg, etc, that you previously defined under common labels)
     def find_indices(lst, condition):
         return [i for i, elem in enumerate(lst) if condition(elem)]
     
@@ -68,7 +70,7 @@ def edf_reader(edf_dir, edf_fn):
     for i in range(len(scalp_idx)):
         chantype[scalp_idx[i]] = 'scalp EEG'
 
-    #Assign channel labels
+    #Code channel labels as bytes dtype (format accepted in hdf5 class currently used)
     def get_channel_labels(all_labels):
         old_list = []
         new_list = []
@@ -81,9 +83,10 @@ def edf_reader(edf_dir, edf_fn):
 
     channel_labels = get_channel_labels(ch_names_clean)
 
-    #Extract raw data and timeseries
+    #Extract timeseries
     data_array, time = raw[:,:]
-
+    
+    #Build dictionary object
     edf_dic = {
         'edf_fn': edf_fn,
         'edf_path': os.path.join(edf_dir, edf_fn),
@@ -107,3 +110,5 @@ def edf_reader(edf_dir, edf_fn):
     return edf_dic
 
 print('EDF reader is ready to use')
+
+"""End of code"""

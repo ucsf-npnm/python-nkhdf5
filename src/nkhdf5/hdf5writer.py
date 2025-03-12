@@ -25,28 +25,35 @@ from concatenator_tools import FilesForBiomarker
 # Main #
 if __name__ == "__main__":
     ## Input Parameters 
-    patient_id   = "PR06"
-    stage1_path  = "/data_store0/presidio/nihon_kohden"
-    edf_path      = pathlib.Path(stage1_path,patient_id,patient_id)
-    #imaging_path = f"/data_store2/imaging/subjects/{patient_id}/elecs/PR03_elecs_all.mat" #PR03 only
-    #imaging_path = f"/data_store2/imaging/subjects/{patient_id}/elecs/stereo_elecs_all.mat" #PR04 and PR05
-    imaging_path = f"/data_store2/imaging/subjects/{patient_id}/elecs/elecs_all.mat" #PR01 and PR06 
-    outpath = pathlib.Path(stage1_path, patient_id, "nkhdf5/edf_to_hdf5")
+    patient_id  = "PR03"
+    stage1_path = "/data_store0/presidio/nihon_kohden"
+    edf_path    = pathlib.Path(stage1_path,patient_id,patient_id)
+    outpath     = pathlib.Path(stage1_path, patient_id, "nkhdf5/edf_to_hdf5")
 
-    EDF_CATALOG = pd.read_csv(f"{stage1_path}/{patient_id}/{patient_id}_edf_catalog.csv")
+    #Define correct path for imaging data according to patient_id (only relevant to Presidio study)
+    imaging_path = f"/data_store2/imaging/subjects/{patient_id}/elecs"
+    if (patient_id == "PR01") or (patient_id == "PR06"):
+        mat_file = "elecs_all.mat"
+    if patient_id == "PR03":
+        mat_file = "PR03_elecs_all.mat"
+    if (patient_id == "PR04") or (patient_id == "PR05"):
+        mat_file = "stereo_elecs_all.mat"
+    elecscoor_filepath = pathlib.Path(imaging_path, mat_file) 
+
+    EDF_CATALOG = pd.read_csv(f"{stage1_path}/{patient_id}/nkhdf5/{patient_id}_edf_catalog.csv")
     BiomarkerSurveys = pd.read_csv(f"{stage1_path}/{patient_id}/clinical_scores/BiomarkerSurveys.csv")
     BiomarkerSurveyTimes = pd.to_datetime(BiomarkerSurveys['SurveyStart'])
 
     ## Extract list of all edfs
-    edf_all = get_edf_list(edf_path)
+    edf_all = list(EDF_CATALOG['edf_name'])[2624:]
     ## Extract list of edf associated to biomarker surveys
-    edf_for_bm = FilesForBiomarker(10, 'EDF', BiomarkerSurveyTimes, EDF_CATALOG)
+    #edf_for_bm = FilesForBiomarker(10, 'EDF', BiomarkerSurveyTimes, EDF_CATALOG)
     
     ## Start of actual code, loop edf files
     for i in range(len(edf_all)):
         edf_contents = edf_reader(edf_path, edf_all[i])
         date_string  = edf_contents["edf_start"].strftime("%Y%m%d")
-        time_string  = edf_contents["edf_start"].strftime("%H%M")
+        time_string  = edf_contents["edf_start"].strftime("%H%M%S")
         start_rec    = time.mktime(edf_contents["edf_start"].timetuple())*1e9 #unix epoch time
         file_name    = f"sub-{patient_id}_ses-stage1_task-continuous_acq-{date_string}_run-{time_string}_ieeg.h5"
         out_path     = pathlib.Path(outpath, file_name)
@@ -82,7 +89,7 @@ if __name__ == "__main__":
             chanlabs_ttl_array = np.array([k for k,v in zip(edf_contents['edf_channellabel_axis'], edf_contents['edf_chantype']) if v == 'TTL'], dtype = h5py.special_dtype(vlen=str))
 
             ### Extract electrodes coordinates (only for depth electrodes, data_ieeg)
-            elecs_mat_file = scipy.io.loadmat(imaging_path)
+            elecs_mat_file = scipy.io.loadmat(elecscoor_filepath)
             elecs_coor = elecs_mat_file['elecmatrix']
 
             ### Create the file

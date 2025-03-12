@@ -23,7 +23,7 @@
 
 ## Features
 
-* edfreader.py: functions to read through each edf file and compile metadata into a dictionary object that will be used to create each hdf5 file.
+* 'edfreader.py' : functions to read through each edf file and compile metadata into a dictionary object that will be used to create each hdf5 file.
 
 ## Requirements
 

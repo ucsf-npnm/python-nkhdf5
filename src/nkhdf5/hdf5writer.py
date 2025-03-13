@@ -25,7 +25,7 @@ from concatenator_tools import FilesForBiomarker
 # Main #
 if __name__ == "__main__":
     ## Input Parameters 
-    patient_id  = "PR03"
+    patient_id  = "PR06"
     stage1_path = "/data_store0/presidio/nihon_kohden"
     edf_path    = pathlib.Path(stage1_path,patient_id,patient_id)
     outpath     = pathlib.Path(stage1_path, patient_id, "nkhdf5/edf_to_hdf5")
@@ -40,16 +40,18 @@ if __name__ == "__main__":
         mat_file = "stereo_elecs_all.mat"
     elecscoor_filepath = pathlib.Path(imaging_path, mat_file) 
 
-    EDF_CATALOG = pd.read_csv(f"{stage1_path}/{patient_id}/nkhdf5/{patient_id}_edf_catalog.csv")
-    BiomarkerSurveys = pd.read_csv(f"{stage1_path}/{patient_id}/clinical_scores/BiomarkerSurveys.csv")
-    BiomarkerSurveyTimes = pd.to_datetime(BiomarkerSurveys['SurveyStart'])
+    edf_catalog = pd.read_csv(f"{stage1_path}/{patient_id}/nkhdf5/{patient_id}_edf_catalog.csv")
+    biomarker_surveys = pd.read_csv(f"{stage1_path}/{patient_id}/clinical_scores/BiomarkerSurveys.csv")
+    biomarker_survey_times = pd.to_datetime(biomarker_surveys['SurveyStart'])
 
     ## Extract list of all edfs
-    edf_all = list(EDF_CATALOG['edf_name'])[2624:]
+    edf_all = get_edf_list(edf_path)
+    #edf_all = list(edf_catalog['edf_name'])
+
     ## Extract list of edf associated to biomarker surveys
-    #edf_for_bm = FilesForBiomarker(10, 'EDF', BiomarkerSurveyTimes, EDF_CATALOG)
+    #edf_for_bm = FilesForBiomarker(10, 'EDF', biomarker_survey_times, edf_catalog)
     
-    ## Start of actual code, loop edf files
+    ## Start of actual code, loop through edf files
     for i in range(len(edf_all)):
         edf_contents = edf_reader(edf_path, edf_all[i])
         date_string  = edf_contents["edf_start"].strftime("%Y%m%d")

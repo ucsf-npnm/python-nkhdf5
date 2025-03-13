@@ -3,19 +3,14 @@ Saves a metadata catalog csv of filename, start date, end date, shortened filena
 lenght to the same directory level as the EDF directory provided.
 '''
 
-# Imports #
-# Standard Libraries #
+
+# Import standard libraries #
 import os
 import pandas as pd
 import numpy as np
-
-
 import subprocess
-
 import mne
-
 import re
-
 from datetime import datetime, timedelta
 
 #Define common labels for channel type

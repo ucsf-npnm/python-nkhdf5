@@ -32,8 +32,8 @@ def edf_reader(edf_dir, edf_fn):
     
     #Extract available metadata
     edf_len = timedelta(seconds=len(raw)/raw.info['sfreq']) # seconds
-    edf_start = raw.info['meas_date']
-    edf_end = edf_start + edf_len
+    edf_start = raw.info['meas_date'] #ATTENTION: date and time are coded in local time, but mne incorrectly assigns UTC as timezone, maybe due to missing info in raw file(?)
+    edf_end = edf_start + edf_len #ATTENTION: edf_len includes overlapping timestamps so edf_end will overlap with edf_start of next edf file
     ch_names_clean = [ch.split('-')[0].split('POL ')[1].replace(" ", "") for ch in raw.ch_names]
 
     #Identify channel type (ieeg, scalp, ekg, etc, that you previously defined under common labels)
@@ -85,9 +85,9 @@ def edf_reader(edf_dir, edf_fn):
     edf_dic = {
         'edf_fn': edf_fn,
         'edf_path': os.path.join(edf_dir, edf_fn),
-        'edf_start': edf_start.replace(tzinfo=None), 
-        'edf_end': edf_end.replace(tzinfo=None),
-        'edf_timezone': 'US/Pacific',
+        'edf_start': edf_start.replace(tzinfo=None), #extract timestamp only to then convert to nanoseconds when writing file
+        'edf_end': edf_end.replace(tzinfo=None), #extract timestamp only to then convert to nanoseconds when writing file
+        'edf_timezone': 'US/Pacific', #assign correct timezone TO-DO:fix timezone in datetime object and then call object.tzinfo instead of str 
         'edf_duration': edf_len,
         'edf_nsample': len(raw),
         'edf_sfreq': raw.info['sfreq'],

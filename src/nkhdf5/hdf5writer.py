@@ -42,23 +42,23 @@ if __name__ == "__main__":
 
     edf_catalog = pd.read_csv(f"{stage1_path}/{patient_id}/nkhdf5/{patient_id}_edf_catalog.csv")
     biomarker_surveys = pd.read_csv(f"{stage1_path}/{patient_id}/clinical_scores/BiomarkerSurveys.csv")
-    biomarker_survey_times = pd.to_datetime(biomarker_surveys['SurveyStart'])
+    biomarker_survey_times = pd.to_datetime(biomarker_surveys["SurveyStart"])
 
     ## Extract list of all edfs
     edf_all = get_edf_list(edf_path)
-    #edf_all = list(edf_catalog['edf_name'])
+    #edf_all = list(edf_catalog["edf_name"]) #another way to extract list of edf files from available edf catalog (Presidio only)
 
     ## Extract list of edf associated to biomarker surveys
-    #edf_for_bm = FilesForBiomarker(10, 'EDF', biomarker_survey_times, edf_catalog)
+    #edf_for_bm = FilesForBiomarker(10, "EDF", biomarker_survey_times, edf_catalog) #convert edf files during biomarker periods 
     
     ## Start of actual code, loop through edf files
     for i in range(len(edf_all)):
-        edf_contents = edf_reader(edf_path, edf_all[i])
-        date_string  = edf_contents["edf_start"].strftime("%Y%m%d")
-        time_string  = edf_contents["edf_start"].strftime("%H%M%S")
+        edf_contents = edf_reader(edf_path, edf_all[i]) #dictionary with metadata+timeseries
+        date_string  = edf_contents["edf_start"].strftime("%Y%m%d") #date use in filename
+        time_string  = edf_contents["edf_start"].strftime("%H%M%S") #time use in filename
         start_rec    = time.mktime(edf_contents["edf_start"].timetuple())*1e9 #unix epoch time
-        file_name    = f"sub-{patient_id}_ses-stage1_task-continuous_acq-{date_string}_run-{time_string}_ieeg.h5"
-        out_path     = pathlib.Path(outpath, file_name)
+        file_name    = f"sub-{patient_id}_ses-stage1_task-continuous_acq-{date_string}_run-{time_string}_ieeg.h5" #get file name ready
+        out_path     = pathlib.Path(outpath, file_name) #full path for new file
 
         if out_path.is_file()==True:
             print("")
@@ -69,10 +69,10 @@ if __name__ == "__main__":
 
         if out_path.is_file()==False:
             ### Extract raw data by channel type
-            ieeg_array = np.array([k for k,v in zip(edf_contents['edf_data'], edf_contents['edf_chantype']) if v == 'intracranial EEG']).T
-            scalpeeg_array = np.array([k for k,v in zip(edf_contents['edf_data'], edf_contents['edf_chantype']) if v == 'scalp EEG']).T
-            ekg_array = np.array([k for k,v in zip(edf_contents['edf_data'], edf_contents['edf_chantype']) if v == 'EKG']).T
-            ttl_array = np.array([k for k,v in zip(edf_contents['edf_data'], edf_contents['edf_chantype']) if v == 'TTL']).T
+            ieeg_array = np.array([k for k,v in zip(edf_contents["edf_data"], edf_contents["edf_chantype"]) if v == "intracranial EEG"]).T
+            scalpeeg_array = np.array([k for k,v in zip(edf_contents["edf_data"], edf_contents["edf_chantype"]) if v == "scalp EEG"]).T
+            ekg_array = np.array([k for k,v in zip(edf_contents["edf_data"], edf_contents["edf_chantype"]) if v == "EKG"]).T
+            ttl_array = np.array([k for k,v in zip(edf_contents["edf_data"], edf_contents["edf_chantype"]) if v == "TTL"]).T
             ### Extract raw time and convert to absolute timestamps (nanoseconds) 
             time_array = np.array((edf_contents["edf_time_axis"]*1e9).astype(int))
 
@@ -84,15 +84,15 @@ if __name__ == "__main__":
 
             new_time_array = np.array(get_abs_timestamps(time_array))
 
-            ### Extract channel labels by channel type
-            chanlabs_ieeg_array = np.array([k for k,v in zip(edf_contents['edf_channellabel_axis'], edf_contents['edf_chantype']) if v == 'intracranial EEG'], dtype = h5py.special_dtype(vlen=str))
-            chanlabs_scalpeeg_array = np.array([k for k,v in zip(edf_contents['edf_channellabel_axis'], edf_contents['edf_chantype']) if v == 'scalp EEG'], dtype = h5py.special_dtype(vlen=str))
-            chanlabs_ekg_array = np.array([k for k,v in zip(edf_contents['edf_channellabel_axis'], edf_contents['edf_chantype']) if v == 'EKG'], dtype = h5py.special_dtype(vlen=str))
-            chanlabs_ttl_array = np.array([k for k,v in zip(edf_contents['edf_channellabel_axis'], edf_contents['edf_chantype']) if v == 'TTL'], dtype = h5py.special_dtype(vlen=str))
+            ### Extract channel labels by channel type in format accepted by class 
+            chanlabs_ieeg_array = np.array([k for k,v in zip(edf_contents["edf_channellabel_axis"], edf_contents["edf_chantype"]) if v == "intracranial EEG"], dtype = h5py.special_dtype(vlen=str))
+            chanlabs_scalpeeg_array = np.array([k for k,v in zip(edf_contents["edf_channellabel_axis"], edf_contents["edf_chantype"]) if v == "scalp EEG"], dtype = h5py.special_dtype(vlen=str))
+            chanlabs_ekg_array = np.array([k for k,v in zip(edf_contents["edf_channellabel_axis"], edf_contents["edf_chantype"]) if v == "EKG"], dtype = h5py.special_dtype(vlen=str))
+            chanlabs_ttl_array = np.array([k for k,v in zip(edf_contents["edf_channellabel_axis"], edf_contents["edf_chantype"]) if v == "TTL"], dtype = h5py.special_dtype(vlen=str))
 
             ### Extract electrodes coordinates (only for depth electrodes, data_ieeg)
             elecs_mat_file = scipy.io.loadmat(elecscoor_filepath)
-            elecs_coor = elecs_mat_file['elecmatrix']
+            elecs_coor = elecs_mat_file["elecmatrix"]
 
             ### Create the file
             f_obj = HDF5NK(file=out_path, mode="a", create=True, construct=True)
@@ -108,8 +108,8 @@ if __name__ == "__main__":
             file_data_ieeg.attributes["filter_lowpass"]  = edf_contents["edf_lowpass"]
             file_data_ieeg.attributes["filter_highpass"] = edf_contents["edf_highpass"]
             file_data_ieeg.attributes["channel_count"]   = ieeg_array.shape[1]
-            file_data_ieeg.axes[0]['time_axis'].attrs['sample_rate'] = edf_contents["edf_sfreq"]
-            file_data_ieeg.axes[0]['time_axis'].attrs['time_zone'] = edf_contents["edf_timezone"]
+            file_data_ieeg.axes[0]["time_axis"].attrs["sample_rate"] = edf_contents["edf_sfreq"]
+            file_data_ieeg.axes[0]["time_axis"].attrs["time_zone"] = edf_contents["edf_timezone"]
 
             if len(scalpeeg_array)!=0:
                 file_data_scalpeeg = f_obj["data_scalpeeg"]
@@ -119,8 +119,8 @@ if __name__ == "__main__":
                 file_data_scalpeeg.attributes["filter_lowpass"]  = edf_contents["edf_lowpass"]
                 file_data_scalpeeg.attributes["filter_highpass"] = edf_contents["edf_highpass"]
                 file_data_scalpeeg.attributes["channel_count"]   = scalpeeg_array.shape[1]
-                file_data_scalpeeg.axes[0]['time_axis'].attrs['sample_rate'] = edf_contents["edf_sfreq"]
-                file_data_scalpeeg.axes[0]['time_axis'].attrs['time_zone'] = edf_contents["edf_timezone"]
+                file_data_scalpeeg.axes[0]["time_axis"].attrs["sample_rate"] = edf_contents["edf_sfreq"]
+                file_data_scalpeeg.axes[0]["time_axis"].attrs["time_zone"] = edf_contents["edf_timezone"]
 
             if len(ekg_array)!=0:
                 file_data_ekg = f_obj["data_ekg"]
@@ -130,8 +130,8 @@ if __name__ == "__main__":
                 file_data_ekg.attributes["filter_lowpass"]  = edf_contents["edf_lowpass"]
                 file_data_ekg.attributes["filter_highpass"] = edf_contents["edf_highpass"]
                 file_data_ekg.attributes["channel_count"]   = ekg_array.shape[1]
-                file_data_ekg.axes[0]['time_axis'].attrs['sample_rate'] = edf_contents["edf_sfreq"]
-                file_data_ekg.axes[0]['time_axis'].attrs['time_zone'] = edf_contents["edf_timezone"]
+                file_data_ekg.axes[0]["time_axis"].attrs["sample_rate"] = edf_contents["edf_sfreq"]
+                file_data_ekg.axes[0]["time_axis"].attrs["time_zone"] = edf_contents["edf_timezone"]
 
             if len(ttl_array)!=0:
                 file_data_ttl = f_obj["data_ttl"]
@@ -141,8 +141,8 @@ if __name__ == "__main__":
                 file_data_ttl.attributes["filter_lowpass"]  = edf_contents["edf_lowpass"]
                 file_data_ttl.attributes["filter_highpass"] = edf_contents["edf_highpass"]
                 file_data_ttl.attributes["channel_count"]   = ttl_array.shape[1]
-                file_data_ttl.axes[0]['time_axis'].attrs['sample_rate'] = edf_contents["edf_sfreq"]
-                file_data_ttl.axes[0]['time_axis'].attrs['time_zone'] = edf_contents["edf_timezone"]
+                file_data_ttl.axes[0]["time_axis"].attrs["sample_rate"] = edf_contents["edf_sfreq"]
+                file_data_ttl.axes[0]["time_axis"].attrs["time_zone"] = edf_contents["edf_timezone"]
 
             print("")
             print(f"{edf_all[i]} saved as: ", file_name)

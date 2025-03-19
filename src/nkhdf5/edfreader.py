@@ -1,5 +1,6 @@
 """
 Read and extract metadata and timeseries from raw EDF file
+v2.0
 """
 
 

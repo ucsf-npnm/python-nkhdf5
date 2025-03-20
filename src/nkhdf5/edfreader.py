@@ -63,8 +63,7 @@ def edf_reader(files_dir, filename):
             data_array, time_array = edf_obj[:,:]
 
             #Get time_array as datetime objects
-            cumm_seconds_array = [x*edf_speriod for x in list(range(1,edf_nsample+1))]
-            time_array_datetime = [edf_start + timedelta(seconds=x) for x in cumm_seconds_array]
+            time_array_datetime = [edf_start + timedelta(seconds=x) for x in time_array]
             
             #Reformat channel labels as bytes object (acccepted in H5 schema)
             def convert_channel_labels(labels):
@@ -128,8 +127,10 @@ def edf_reader(files_dir, filename):
                     "edf_time_array": time_array, #former edf_time_axis
                     "edf_time_datetime": time_array_datetime
                     }
+            
+            edf_obj.close()
 
-     return edf_dic
+    return edf_dic
 
 print("EDF reader is ready to use")
 

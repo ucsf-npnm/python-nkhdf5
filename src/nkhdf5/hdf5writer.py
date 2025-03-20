@@ -7,6 +7,7 @@ v3.0
 
 # Standard Libraries #
 import pathlib
+import os
 import numpy as np
 import pandas as pd
 import json
@@ -31,8 +32,8 @@ if __name__ == "__main__":
     with open("/userdata/dastudillo/subjects.json", "r") as f:
         subjects = json.load(f)
 
-    edf_dir    = subjects[subject_id]["edf_dir"]
-    outdir     = subjects[subject_id]["h5_dir"]
+    edf_dir = subjects[subject_id]["edf_dir"]
+    outdir = subjects[subject_id]["h5_dir"]
     eleccoor_file = subjects[subject_id]["eleccoor_file"]
 
     ## Extract list of EDF files stored in directory

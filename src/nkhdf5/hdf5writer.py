@@ -12,10 +12,13 @@ import numpy as np
 import pandas as pd
 import json
 import datetime
+from datetime import datetime, timedelta
 import time
 import h5py
 import scipy.io
 import ast
+import pytz
+from pytz import timezone
 
 # Third-Party Packages #
 from nkhdf5 import hdf5nk
@@ -27,24 +30,36 @@ from concatenator_tools import FilesForBiomarker
 
 # Main #
 if __name__ == "__main__":
-    ## Input Parameters 
+    ## User-specified inputs
     subject_id  = "PR06"
-    with open("/userdata/dastudillo/subjects.json", "r") as f:
-        subjects = json.load(f)
+    user_dir    = "/userdata/dastudillo" #directory where conversion metaframe will be store, don't use same directory for storing hdf5!!
 
-    edf_dir = subjects[subject_id]["edf_dir"]
-    outdir = subjects[subject_id]["h5_dir"]
-    eleccoor_file = subjects[subject_id]["eleccoor_file"]
+    with open(f"{user_dir}/subjects.json", "r") as f: #stored in user's directory, not part of repo files
+        subjects = json.load(f)
+    
+    edf_dir = subjects[subject_id]["edf_dir"] #directory where raw EDF are stored
+    outdir = subjects[subject_id]["BIDS_raw_stage1"] #directory where HDF5 files will be store
+    eleccoor_file = subjects[subject_id]["eleccoor_file"] #file containing electrodes coordinates
+
+    normalize_dates = True #choose if you want timestamps deidentified (keep local time, normalize date to subject's consent date)
 
     ## Extract list of EDF files stored in directory
     edf_files = sorted(filter(lambda x: True if "edf" in x else False, os.listdir(edf_dir)))
-    
+    files_metadata = []
+    metaframe_cols = ["hdf5_name", "edf_name", "hdf5_start", "hdf5_end", "edf_start", "edf_end", "tz", "hdf5_duration", "edf_duration", "sfreq", "hdf5_path", "edf_path"]
+
     ## Start of actual code, loop through edf files
     for edf_file in edf_files:
         edf_contents = edf_reader(edf_dir, edf_file) #dictionary with metadata+timeseries
-        date_string  = edf_contents["edf_start"].strftime("%Y%m%d") #date use in filename
-        time_string  = edf_contents["edf_start"].strftime("%H%M%S") #time use in filename
-        file_name    = f"sub-{subject_id}_ses-stage1_task-continuous_acq-{date_string}_run-{time_string}_ieeg.h5" #get file name ready
+
+        #name output file according to what day from stage 1 it is (kinda messy, quick solution)
+        stage1_day1 = datetime.strptime(subjects[subject_id]["stage1_day1"], "%Y-%m-%d").date()
+        file_date = edf_contents["hdf5_start"].date()
+        diff = (file_date-stage1_day1).days
+        day_label = "day" + str(diff+1).zfill(2)
+        time_label = edf_contents["hdf5_start"].strftime("%H%M%S")
+
+        file_name    = f"sub-{subject_id}_ses-stage1_task-continuous_acq-{day_label}_run-{time_label}_ieeg.h5" #get file name ready
         file_out     = pathlib.Path(outdir, file_name) #full path for new file
 
         if file_out.is_file()==True:
@@ -55,15 +70,29 @@ if __name__ == "__main__":
             print("")
 
         if file_out.is_file()==False:
+            ### Extract info for conversion catalog
+            file_metadata = [file_name, edf_file, edf_contents["hdf5_start"], edf_contents["hdf5_end"], edf_contents["edf_start"], edf_contents["edf_end"], edf_contents["edf_timezone"],
+                             edf_contents["hdf5_duration"], edf_contents["edf_duration"], edf_contents["edf_sfreq"], file_out, edf_contents["edf_path"]]
+            files_metadata.append(file_metadata)
+
             ### Extract timeseries by channel type
-            ieeg_array = np.array([k for k,v in zip(edf_contents["edf_data"], edf_contents["edf_chantypes"]) if v == "intracranial EEG"]).T
-            scalpeeg_array = np.array([k for k,v in zip(edf_contents["edf_data"], edf_contents["edf_chantypes"]) if v == "scalp EEG"]).T
-            ekg_array = np.array([k for k,v in zip(edf_contents["edf_data"], edf_contents["edf_chantypes"]) if v == "EKG"]).T
-            ttl_array = np.array([k for k,v in zip(edf_contents["edf_data"], edf_contents["edf_chantypes"]) if v == "TTL"]).T
+            ieeg_array = np.array([k for k,v in zip(edf_contents["hdf5_data"], edf_contents["edf_chantypes"]) if v == "intracranial EEG"]).T
+            scalpeeg_array = np.array([k for k,v in zip(edf_contents["hdf5_data"], edf_contents["edf_chantypes"]) if v == "scalp EEG"]).T
+            ekg_array = np.array([k for k,v in zip(edf_contents["hdf5_data"], edf_contents["edf_chantypes"]) if v == "EKG"]).T
+            ttl_array = np.array([k for k,v in zip(edf_contents["hdf5_data"], edf_contents["edf_chantypes"]) if v == "TTL"]).T
 
-            ### Reformat datetime objects to unix nanoseconds 
-            time_array_unix = np.array([int(x.timestamp() * 1e9) for x in edf_contents["edf_time_datetime"]]) 
+            ### Reformat datetime objects to unix nanoseconds
+            if normalize_dates == True:
+                ref_date = datetime.strptime(subjects[subject_id]["consent_date"], "%Y-%m-%d").replace(tzinfo=pytz.timezone('UTC')) #add consent date as reference to normalize dates
+                start_unix = int(1e9 * (edf_contents["hdf5_start"].timestamp() - ref_date.timestamp()))
+                end_unix = int(1e9 * (edf_contents["hdf5_end"].timestamp() - ref_date.timestamp()))
+                time_array_unix = np.array([int(1e9 * (dt.timestamp()-ref_date.timestamp())) for dt in edf_contents["hdf5_time_datetime"]])
 
+            if normalize_dates == False:
+                start_unix = int(1e9 * edf_contents["hdf5_start"].timestamp())
+                end_unix = int(1e9 * edf_contents["hdf5_end"].timestamp())
+                time_array_unix = np.array([int(1e9 * dt.timestamp()) for dt in edf_contents["hdf5_time_datetime"]]) 
+                
             ### Extract channel labels by channel type in format accepted by class 
             chanlabs_ieeg_array = np.array([k for k,v in zip(edf_contents["edf_chanlabels_bytes"], edf_contents["edf_chantypes"]) if v == "intracranial EEG"], dtype = h5py.special_dtype(vlen=str))
             chanlabs_scalpeeg_array = np.array([k for k,v in zip(edf_contents["edf_chanlabels_bytes"], edf_contents["edf_chantypes"]) if v == "scalp EEG"], dtype = h5py.special_dtype(vlen=str))
@@ -77,8 +106,8 @@ if __name__ == "__main__":
             ### Create the file
             f_obj = HDF5NK(file=file_out, mode="a", create=True, construct=True)
             f_obj.attributes["subject_id"] = subject_id
-            f_obj.attributes["start"]      = int(edf_contents["edf_start"].timestamp() * 1e9)
-            f_obj.attributes["end"]        = int(edf_contents["edf_end"].timestamp() * 1e9)
+            f_obj.attributes["start"]      = start_unix
+            f_obj.attributes["end"]        = end_unix
     
             file_data_ieeg = f_obj["data_ieeg"]
             file_data_ieeg.append(ieeg_array, component_kwargs={"timeseries": {"data": time_array_unix}})
@@ -130,14 +159,34 @@ if __name__ == "__main__":
         
             f_obj.close()
 
-            #print("Converting next file...")
-            #print("")
+
+    #Save metaframe
+    metaframe = pd.DataFrame(files_metadata, index=None, columns=metaframe_cols)
+    metaframe_out = pathlib.Path(user_dir, "sub-{subject_id}_ses-stage1_hdf5-conversion-metaframe.csv")
+
+    if metaframe_out.is_file()==True:
+        print("Metaframe already exist! updating with information of new EDF files converted")
+        stored_metaframe = pd.read_csv(metaframe_out)
+        stored_metaframe["hdf5_start"] = pd.to_datetime(stored_metaframe["hdf5_start"], format="%Y-%m-%d %H:%M:%S.%f")
+        stored_metaframe["hdf5_end"] = pd.to_datetime(stored_metaframe["hdf5_end"], format="%Y-%m-%d %H:%M:%S.%f")
+        stored_metaframe["edf_start"] = pd.to_datetime(stored_metaframe["edf_start"], format="%Y-%m-%d %H:%M:%S.%f")
+        stored_metaframe["edf_end"] = pd.to_datetime(stored_metaframe["edf_end"], format="%Y-%m-%d %H:%M:%S.%f")
+
+        updated_metaframe = pd.concat([stored_metaframe, metaframe], ignore_index=True).sort_values(by="hdf5_start")
+        updated_metaframe.to_csv(metaframe_out, index=False)
+        print(f"{metaframe_out} has been updated")
+        print("")
+
+    if metaframe_out.is_file()==False:
+        metaframe.to_csv(metaframe_out, index=False)
+        print(f"New file created {metaframe_out}")
+        print("")
+
+        #print("Converting next file...")
+        #print("")
         #After closing check if the file exists #
         #print(f"File Exists: {out_path.is_file()}")
         #print(f"File is Openable: {HDF5NK.is_openable(out_path)}")
         #print("")
 
-
-"""End of code
-
-"""
+"""End of code"""

@@ -15,19 +15,24 @@ from datetime import datetime, timedelta
 import mne
 import pyedflib
 
+#Set maximum duration of EDF file (in seconds, regardless of sampling frequency)
+edf_maxduration = 300
+
 #Define common labels for channel type
 ieeg_chan = ["OFC", "SGC", "RA", "LA", "RH", "LH", "VC"]
 dc_chan   = ["DC"]
 ekg_chan  = ["EKG", "EOG"] #todo: create separate variables for EOG in the future, for now pooled with EKG
 emg_chan  = ["EMG"]
 
+#Assing directory where continuous copy of EDF file will be temporarily stored
+temp_dir = "/scratch/dastudillo/temp/"
+pathlib.Path(temp_dir).mkdir(parents=True, exist_ok=True) #create temporary directory if it doesn't exist
+
 #Extracts metadata and timeseries from each EDF file and compiles it into a dictionary 
 def edf_reader(files_dir, filename):
     f = os.path.join(files_dir, filename)
     if os.path.isfile(f):
         error_found = False
-        temp_dir = "/userdata/dastudillo/temp/" #temporary directory to save continuous EDF
-        pathlib.Path(temp_dir).mkdir(parents=True, exist_ok=True) #create temporary directory if it doesn't exist
         bash_cmd = "./edfplcnv/edfplusdcnv --dest-dir=" + temp_dir + " " + f
         process = subprocess.Popen(bash_cmd.split(), stdout=subprocess.PIPE) #run conversion of discontinuous to continuous EDF
         return_code = process.wait()
@@ -51,8 +56,8 @@ def edf_reader(files_dir, filename):
             edf_nsample = len(edf_obj)
             edf_sfreq = edf_obj.info["sfreq"]
             edf_speriod = 1/edf_sfreq
-            edf_duration = timedelta(seconds=edf_nsample/edf_sfreq)
-            edf_end = edf_start + edf_duration #ATTENTION: edf_len includes overlapping timestamps so edf_end will overlap with edf_start of next edf file
+            edf_duration = edf_nsample/edf_sfreq
+            edf_end = edf_start + timedelta(seconds=edf_duration) #ATTENTION: edf_len includes overlapping timestamps so edf_end will overlap with edf_start of next edf file
             edf_path = f
             edf_timezone = "US/Pacific"
             edf_lowpass = edf_obj.info["lowpass"] #low pass filter
@@ -60,11 +65,26 @@ def edf_reader(files_dir, filename):
             edf_nchan = edf_obj.info["nchan"] #number of total channels
             channel_labels = [ch.replace("POL ", "").replace("-Ref", "").replace(" ", "") for ch in edf_obj.ch_names]
 
-            data_array, time_array = edf_obj[:,:]
+            edf_data_array, edf_time_array = edf_obj[:,:]
+
+            #Remove buffer period from data arrasy if edf_duration is over edf_maxduration
+            h5_start = edf_start
+            if edf_duration > edf_maxduration:
+                max_loc = int(edf_maxduration*edf_sfreq)
+                h5_data_array = edf_data_array[:,:max_loc]
+                h5_time_array = edf_time_array[:max_loc]
+                h5_duration = edf_maxduration
+                h5_end = h5_start + timedelta(seconds=h5_duration)
+            if edf_duration <= edf_maxduration:
+                h5_data_array = edf_data_array.copy()
+                h5_time_array = edf_time_array.copy()
+                h5_duration = edf_duration
+                h5_end = edf_end
 
             #Get time_array as datetime objects
-            time_array_datetime = [edf_start + timedelta(seconds=x) for x in time_array]
-            
+            edf_time_array_datetime = [edf_start + timedelta(seconds=x) for x in edf_time_array]
+            h5_time_array_datetime = [h5_start + timedelta(seconds=x) for x in h5_time_array]
+
             #Reformat channel labels as bytes object (acccepted in H5 schema)
             def convert_channel_labels(labels):
                 split_list = []
@@ -123,15 +143,23 @@ def edf_reader(files_dir, filename):
                     "edf_chanlabels_bytes": channel_labels_bytes, #former edf_channellabel_axis
                     "edf_chantypes": channel_types, #former edf_chantype
                     "edf_axis": list(["chan","sample"]),
-                    "edf_data": data_array,
-                    "edf_time_array": time_array, #former edf_time_axis
-                    "edf_time_datetime": time_array_datetime
+                    "edf_data": edf_data_array,
+                    "edf_time_array": edf_time_array, #former edf_time_axis
+                    "edf_time_datetime": edf_time_array_datetime,
+                    "hdf5_start": h5_start,
+                    "hdf5_end": h5_end,
+                    "hdf5_duration": h5_duration,
+                    "hdf5_data": h5_data_array,
+                    "hdf5_time_array": h5_time_array,
+                    "hdf5_time_datetime": h5_time_array_datetime
                     }
             
             edf_obj.close()
 
     return edf_dic
 
+print("")
 print("EDF reader is ready to use")
+print("")
 
 """End of code"""

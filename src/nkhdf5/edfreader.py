@@ -12,6 +12,8 @@ import re
 import pathlib
 import subprocess
 from datetime import datetime, timedelta
+import pytz
+from pytz import timezone
 import mne
 import pyedflib
 
@@ -73,7 +75,7 @@ def edf_reader(files_dir, filename):
                 max_loc = int(edf_maxduration*edf_sfreq)
                 h5_data_array = edf_data_array[:,:max_loc]
                 h5_time_array = edf_time_array[:max_loc]
-                h5_duration = edf_maxduration
+                h5_duration = float(edf_maxduration)
                 h5_end = h5_start + timedelta(seconds=h5_duration)
             if edf_duration <= edf_maxduration:
                 h5_data_array = edf_data_array.copy()
@@ -161,5 +163,11 @@ def edf_reader(files_dir, filename):
 print("")
 print("EDF reader is ready to use")
 print("")
+
+#de-identify dates in timestamps
+def normalize_dates(ref_dt, dt): #both inputs have
+    ref_dt_utc = ref_dt.replace(tzinfo=pytz.timezone('UTC'))
+    timestamp_nanoseconds = int(1e9 * (dt.timestamp()-ref_dt_utc.timestamp()))
+    return timestamp_nanoseconds
 
 """End of code"""

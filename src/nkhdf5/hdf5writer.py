@@ -23,7 +23,7 @@ from nkhdf5 import hdf5nk
 HDF5NK = hdf5nk.HDF5NK_0_1_0
 
 # Local Packages #
-from edfreader import edf_reader, normalize_dates
+from edfreader import get_meastimestamp, edf_reader, normalize_dates
 
 # Main #
 if __name__ == "__main__":
@@ -36,22 +36,22 @@ if __name__ == "__main__":
     edf_dir = subjects[subject_id]["edf_dir"] #directory where raw EDF are stored
     outdir = subjects[subject_id]["BIDS_raw_stage1"] #directory where HDF5 files will be store
     eleccoor_file = subjects[subject_id]["eleccoor_file"] #file containing electrodes coordinates
+    stage1_day1 = datetime.strptime(subjects[subject_id]["stage1_day1"], "%Y-%m-%d").date() #for file naming, this date sets "day01"
 
     normalize_dates_on = True #choose if you want timestamps deidentified (keep local time, normalize date to subject's consent date)
+    ref_date = datetime.strptime(subjects[subject_id]["consent_date"], "%Y-%m-%d")  #add consent date as reference to normalize dates, comment out if above is false
 
     ## Extract list of EDF files stored in directory
     edf_files = sorted(filter(lambda x: True if "edf" in x else False, os.listdir(edf_dir)))
 
     ## Start of actual code, loop through edf files
     for edf_file in edf_files:
-        edf_contents = edf_reader(edf_dir, edf_file) #dictionary with metadata+timeseries
-
-        #name output file according to what day from stage 1 it is (kinda messy, quick solution)
-        stage1_day1 = datetime.strptime(subjects[subject_id]["stage1_day1"], "%Y-%m-%d").date()
-        file_date = edf_contents["hdf5_start"].date()
-        diff = (file_date-stage1_day1).days
+        edfstart = get_meastimestamp(edf_dir, edf_file) #get measurement datetime (start of recording) using pyedflib, use this to name output file and check if it already exist
+        
+        edf_start_dt = edfstart.date()
+        diff = (edf_start_dt-stage1_day1).days
         day_label = "day" + str(diff+1).zfill(2)
-        time_label = edf_contents["hdf5_start"].strftime("%H%M%S")
+        time_label = edfstart.strftime("%H%M%S")
 
         file_name    = f"sub-{subject_id}_ses-stage1_task-continuous_acq-{day_label}_run-{time_label}_ieeg.h5" #get file name ready
         file_out     = pathlib.Path(outdir, file_name) #full path for new file
@@ -64,7 +64,8 @@ if __name__ == "__main__":
             print("")
 
         if file_out.is_file()==False:
-
+            edf_contents = edf_reader(edf_dir, edf_file, edfstart) #dictionary with metadata+timeseries
+            
             ### Extract timeseries by channel type
             ieeg_array = np.array([k for k,v in zip(edf_contents["hdf5_data"], edf_contents["edf_chantypes"]) if v == "intracranial EEG"]).T
             scalpeeg_array = np.array([k for k,v in zip(edf_contents["hdf5_data"], edf_contents["edf_chantypes"]) if v == "scalp EEG"]).T
@@ -73,7 +74,8 @@ if __name__ == "__main__":
 
             ### Reformat datetime objects to unix nanoseconds
             if normalize_dates_on == True:
-                ref_date = datetime.strptime(subjects[subject_id]["consent_date"], "%Y-%m-%d")  #add consent date as reference to normalize dates
+                print("Deidentifying/normalizing dates in timeseries...")
+                print("")
                 start_unix = normalize_dates(ref_date, edf_contents["hdf5_start"]) #nanoseconds
                 end_unix = normalize_dates(ref_date, edf_contents["hdf5_end"]) #nanoseconds
                 time_array_unix = np.array([normalize_dates(ref_date, dt) for dt in edf_contents["hdf5_time_datetime"]])
@@ -94,6 +96,8 @@ if __name__ == "__main__":
             elecs_coor = elecs_mat_file["elecmatrix"]
 
             ### Create the file
+            print("Creating HDF5 file...")
+            print("")
             f_obj = HDF5NK(file=file_out, mode="a", create=True, construct=True)
             f_obj.attributes["subject_id"] = subject_id
             f_obj.attributes["start"]      = start_unix

@@ -74,6 +74,7 @@ if __name__ == "__main__":
 
             ### Reformat datetime objects to unix nanoseconds
             if normalize_dates_on == True:
+                print("")
                 print("Deidentifying/normalizing dates in timeseries...")
                 print("")
                 start_unix = normalize_dates(ref_date, edf_contents["hdf5_start"]) #nanoseconds
@@ -102,7 +103,9 @@ if __name__ == "__main__":
             f_obj.attributes["subject_id"] = subject_id
             f_obj.attributes["start"]      = start_unix
             f_obj.attributes["end"]        = end_unix
-    
+            
+            print("Writing ieeg data...")
+            print("")
             file_data_ieeg = f_obj["data_ieeg"]
             file_data_ieeg.append(ieeg_array, component_kwargs={"timeseries": {"data": time_array_unix}})
             file_data_ieeg.axes[1]["channellabel_axis"].append(chanlabs_ieeg_array)
@@ -115,6 +118,8 @@ if __name__ == "__main__":
             file_data_ieeg.axes[0]["time_axis"].attrs["time_zone"] = edf_contents["edf_timezone"]
 
             if len(scalpeeg_array)!=0:
+                print("Writing scalp eeg data...")
+                print("")
                 file_data_scalpeeg = f_obj["data_scalpeeg"]
                 file_data_scalpeeg.append(scalpeeg_array, component_kwargs={"timeseries": {"data": time_array_unix}})
                 file_data_scalpeeg.axes[1]["channellabel_axis"].append(chanlabs_scalpeeg_array)
@@ -126,6 +131,8 @@ if __name__ == "__main__":
                 file_data_scalpeeg.axes[0]["time_axis"].attrs["time_zone"] = edf_contents["edf_timezone"]
 
             if len(ekg_array)!=0:
+                print("Writing ekg data...")
+                print("")
                 file_data_ekg = f_obj["data_ekg"]
                 file_data_ekg.append(ekg_array, component_kwargs={"timeseries": {"data": time_array_unix}})
                 file_data_ekg.axes[1]["channellabel_axis"].append(chanlabs_ekg_array)
@@ -137,6 +144,7 @@ if __name__ == "__main__":
                 file_data_ekg.axes[0]["time_axis"].attrs["time_zone"] = edf_contents["edf_timezone"]
 
             if len(ttl_array)!=0:
+                print("Writing DC channels data...")
                 file_data_ttl = f_obj["data_ttl"]
                 file_data_ttl.append(ttl_array, component_kwargs={"timeseries": {"data": time_array_unix}})
                 file_data_ttl.axes[1]["channellabel_axis"].append(chanlabs_ttl_array)
@@ -155,6 +163,7 @@ if __name__ == "__main__":
 
 
     print("Conversion completed!")
+    print("")
 
         #print("Converting next file...")
         #print("")

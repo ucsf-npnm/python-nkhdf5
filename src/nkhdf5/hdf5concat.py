@@ -56,7 +56,7 @@ if __name__ == "__main__":
     hdf5_start_lst = [datetime.strptime(x, "%Y-%m-%d %H:%M:%S.%f") for x in hdf5_catalog.hdf5_start]
     hdf5_end_lst = [datetime.strptime(x, "%Y-%m-%d %H:%M:%S.%f") for x in hdf5_catalog.hdf5_end]
     filenames = list(hdf5_catalog.hdf5_name)
-    target_end_lst = [datetime.strptime(x, "%Y-%m-%d %H:%M:%S") for x in biomarker_surveys.start_local_timestamp][32:]
+    target_end_lst = [datetime.strptime(x, "%Y-%m-%d %H:%M:%S") for x in biomarker_surveys.start_local_timestamp]
 
     for target_end in target_end_lst:
         target_start = target_end - timedelta(minutes=target_duration)

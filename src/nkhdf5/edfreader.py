@@ -1,6 +1,6 @@
 """
 Read and extract metadata and timeseries from raw EDF file
-v3.0
+v4.0 (uses edfio instead of pyedflib package)
 """
 
 
@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 import pytz
 from pytz import timezone
 import mne
-import pyedflib
+from edfio import read_edf
 
 #Set maximum duration of EDF file (in seconds, regardless of sampling frequency)
 edf_maxduration = 300
@@ -28,34 +28,17 @@ ekg_chan  = ["EKG", "EOG"] #todo: create separate variables for EOG in the futur
 emg_chan  = ["EMG"]
 #remove_chan = "BP1" #PR07
 
-#Assign directory where continuous copy of EDF file will be temporarily stored
-temp_dir = "/scratch/dastudillo/temp/"
-pathlib.Path(temp_dir).mkdir(parents=True, exist_ok=True) #create temporary directory if it doesn't exist
-
 def get_meastimestamp(files_dir, filename):
     error_files = []
     f = os.path.join(files_dir, filename)
     if os.path.isfile(f):
-        error_found = False
-        bash_cmd = "./edfplcnv/edfplusdcnv --dest-dir=" + temp_dir + " " + f
-        process = subprocess.Popen(bash_cmd.split(), stdout=subprocess.PIPE) #run conversion of discontinuous to continuous EDF
-        return_code = process.wait()
-
-        if return_code != 0:
-            error_found = True
+        try:
+            edf_f = read_edf(f) #read EDF file
+            start_f = datetime.combine(edf_f.startdate, edf_f.starttime)
+        except:
+            print("Error opening ", f)
             error_files.append(f)
-            print("Error converting ", f)
-            
-        if error_found == False:
-            temp_file = temp_dir + "/" + filename.replace(".edf", "_0001.edf")
-            try:
-                edf_f = pyedflib.EdfReader(temp_file)
-                start_f = edf_f.getStartdatetime()
-                edf_f.close()
-            except:
-                print("Error opening ", f)
-                error_files.append(f)
-            os.remove(temp_file)
+            start_f = None
     return start_f
 
 #Extracts metadata and timeseries from each EDF file and compiles it into a dictionary 

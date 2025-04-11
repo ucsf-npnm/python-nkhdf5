@@ -21,16 +21,19 @@ import pyedflib
 edf_maxduration = 300
 
 #Define common labels for channel type
-ieeg_chan = ["OFC", "SGC", "RA", "LA", "RH", "LH", "VC"]
+ieeg_chan = ["OFC", "SGC", "RA", "LA", "RH", "LH", "VC"] #up to PR06
+#ieeg_chan = ["OFC", "SGC", "RA", "LA", "RH", "LH", "NAc", "BNS", "RMD", "LMD"] #PR07 onwards
 dc_chan   = ["DC"]
 ekg_chan  = ["EKG", "EOG"] #todo: create separate variables for EOG in the future, for now pooled with EKG
 emg_chan  = ["EMG"]
+#remove_chan = "BP1" #PR07
 
 #Assign directory where continuous copy of EDF file will be temporarily stored
 temp_dir = "/scratch/dastudillo/temp/"
 pathlib.Path(temp_dir).mkdir(parents=True, exist_ok=True) #create temporary directory if it doesn't exist
 
 def get_meastimestamp(files_dir, filename):
+    error_files = []
     f = os.path.join(files_dir, filename)
     if os.path.isfile(f):
         error_found = False
@@ -40,6 +43,7 @@ def get_meastimestamp(files_dir, filename):
 
         if return_code != 0:
             error_found = True
+            error_files.append(f)
             print("Error converting ", f)
             
         if error_found == False:
@@ -50,6 +54,7 @@ def get_meastimestamp(files_dir, filename):
                 edf_f.close()
             except:
                 print("Error opening ", f)
+                error_files.append(f)
             os.remove(temp_file)
     return start_f
 
@@ -70,9 +75,19 @@ def edf_reader(files_dir, filename, file_start):
     edf_lowpass = edf_obj.info["lowpass"] #low pass filter
     edf_highpass = edf_obj.info["highpass"] #high pass filter
     edf_nchan = edf_obj.info["nchan"] #number of total channels
-    channel_labels = [ch.replace("POL ", "").replace("-Ref", "").replace(" ", "") for ch in edf_obj.ch_names]
 
+    channel_labels = [ch.replace("POL ", "").replace("-Ref", "").replace(" ", "") for ch in edf_obj.ch_names]
     edf_data_array, edf_time_array = edf_obj[:,:]
+
+    #####For PR07 only#####
+    #raw_channel_labels = [ch.replace("POL ", "").replace("-Ref", "").replace(" ", "") for ch in edf_obj.ch_names]
+    #raw_edf_data_array, edf_time_array = edf_obj[:,:]
+
+    #remove_idx = raw_channel_labels.index(remove_chan)
+    #edf_data_array = np.delete(raw_edf_data_array, remove_idx, axis=0)
+    #channel_labels = raw_channel_labels.copy()
+    #channel_labels.remove(remove_chan)
+    #######################
 
     #Remove buffer period from data arrasy if edf_duration is over edf_maxduration
     h5_start = edf_start

@@ -24,6 +24,7 @@ click = ">=8.0.1"
 proxyarrays = {git = "git@github.com:FongAnthonyM/python-proxyarrays.git", rev = "v0.6.0"}
 hdf5objects = {git = "git@github.com:FongAnthonyM/python-hdf5objects.git", rev = "v0.5.0"}
 pyedflib = "^0.1.40"
+edfio = "^0.4.8"
 
 
 [tool.poetry.dev-dependencies]

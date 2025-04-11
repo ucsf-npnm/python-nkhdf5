@@ -481,6 +481,20 @@ tomli = ">=2.0.1"
 xlrd = ">=2.0.1"
 
 [[package]]
+name = "edfio"
+version = "0.4.8"
+description = "Read and write EDF/EDF+ files."
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "edfio-0.4.8-py3-none-any.whl", hash = "sha256:dac02ba964dff4e277eec232fc4702ded5942cf0230e2fd12a618dcef424154d"},
+    {file = "edfio-0.4.8.tar.gz", hash = "sha256:f934b1df522e7335f3851d26889e3f24301c3fd53c804fe96261ab7b4a008a2b"},
+]
+
+[package.dependencies]
+numpy = ">=1.22.0"
+
+[[package]]
 name = "et-xmlfile"
 version = "1.1.0"
 description = "An implementation of lxml.xmlfile for the standard library"
@@ -2348,4 +2362,4 @@ test = ["pytest", "pytest-cov"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "738d39d9efeba124775717a1885f70bd3df6623d38e66a86d26d75759f0a2bb8"
+content-hash = "08f52fbcbc0eff6a476c4c3668a511c4ccc127ff16c18b47924f6794e1686cb9"

@@ -1,22 +1,21 @@
-"""hdf5concat_test.py
+"""hdf5concat.py
 
-Creates new 6-min duration h5 file per single biomarker survey
+Creates new 6-min duration h5 file preceding each biomarker survey, accounts for duplicated timestamps
 
 """
 
-# Package Header #
-#from .header import *
-
 # Standard Libraries #
-import pathlib
-import numpy as np
 import pandas as pd
+import numpy as np
 import datetime
-from datetime import timedelta
+from datetime import datetime, timedelta
 import time
-import h5py
-import scipy.io
+import json
 import os
+import pathlib
+import pytz
+from pytz import timezone
+import h5py
 import ast
 
 # Third-Party Packages #
@@ -24,88 +23,139 @@ from nkhdf5 import hdf5nk
 
 # Local Packages #
 HDF5NK = hdf5nk.HDF5NK_0_1_0 
-from concatenator_tools import timestamps_to_datetime, str_to_datetime, concat_timeseries
 
 # Main #
 if __name__ == "__main__":
-    ## Input Parameters 
-    patient_id       = "PR06"
-    stage1_path      = "/data_store0/presidio/nihon_kohden/"
-    convert_edf_path = "nkhdf5/edf_to_hdf5/"
-    bm_catalog = pd.read_csv(f"/data_store0/presidio/nihon_kohden/{patient_id}/{patient_id}_edf_biomarker_catalog.csv")
-    rel_h5_files = bm_catalog['rel_h5_10min'].apply(ast.literal_eval)
+    # Input Parameters  
+    subject_id  = "PR07"
+    catalogs_dir = f"/data_store0/presidio/nihon_kohden/{subject_id}/catalogs"
+    out_dir = f"/data_store0/presidio/nihon_kohden/{subject_id}/nkhdf5"
+    hdf5_catalog = pd.read_csv(f"{catalogs_dir}/sub-{subject_id}_hdf5-catalog.csv")
+    redcap = pd.read_csv(f"{catalogs_dir}/sub-{subject_id}_surveys-catalog.csv")
+    biomarker_idxs = [record_id for record_id, condition in zip(redcap.record_id, redcap.condition) if "Biomarker" in condition]
+    biomarker_surveys = redcap.loc[redcap.record_id.isin(biomarker_idxs)].reset_index(drop=True)
 
-    td = timedelta(minutes=6) #select time window to substract from start of biomarker survey
-    bm_end_time = pd.to_datetime(bm_catalog['SurveyStart'])
-    bm_start_time = bm_end_time - td
+    elecscoord_on = False
 
-    bm_end_datetime = str_to_datetime(bm_end_time)
-    bm_start_datetime = str_to_datetime(bm_start_time)
-
-    ##Choose example to process
-    #example_idx = 0
-    #h5_files_bm = rel_h5_files[example_idx]
-
-    ## Extract data from h5 files associated to BM and concatenate timeseries
-    ##Loop through each biomarker period    
-    for i in range(len(rel_h5_files)):
-        concat_data = concat_timeseries(rel_h5_files[i])
-    ##Get concatenated timestamps as datetime objects
-        timestamps_as_datetime = timestamps_to_datetime(concat_data['time_array'])
+    with open(f"/userdata/dastudillo/subjects.json", "r") as f: #stored in user's directory, not part of repo files
+        subjects = json.load(f)
+    hdf5_dir = subjects[subject_id]["BIDS_raw_stage1"] #where HDF5 files are stored
+    ref_date = datetime.strptime(subjects[subject_id]["consent_date"], "%Y-%m-%d") #use to retrieve original timestamps
+    stage1_day1 = datetime.strptime(subjects[subject_id]["stage1_day1"], "%Y-%m-%d").date() #for file naming, this date sets "day01"
     
-        start_rec = bm_start_datetime[i]
-        end_rec = bm_end_datetime[i]
-        new_time_array = []
-        new_data_array = []
-        for j in range(len(timestamps_as_datetime)):
-            if start_rec<=timestamps_as_datetime[j]<=end_rec:
-                new_time_array.append(concat_data['time_array'][j])
-                new_data_array.append(concat_data['data_array'][j])
-                
-        new_time_array = np.array(new_time_array)
-        new_data_array = np.array(new_data_array)
+    def get_original_dt(ref_dt, norm_t):
+        #ref_dt is naive datetime object representing local reference date
+        #norm_t is normalized/deidentified timestamp coming from hdf5 file
+        refdt_utc_t = ref_dt.replace(tzinfo=pytz.timezone('UTC')).timestamp() #UTC timestamp of reference date
+        orig_t = norm_t/1e9 + refdt_utc_t #original timestamp in local time
+        orig_dt = datetime.fromtimestamp(orig_t) #original datetime object (with correct local date and time)
+        return orig_dt
 
-        bm_num = str(i + 1).zfill(4) 
-        file_name = f"sub-{patient_id}_task-biomarker_{bm_num}_ieeg.h5"
-        out_path  = pathlib.Path(f"/data_store0/presidio/nihon_kohden/{patient_id}/nkhdf5/biomarker", file_name)
+    # Main code
+    target_duration = 6 #minutes
+    hdf5_start_lst = [datetime.strptime(x, "%Y-%m-%d %H:%M:%S.%f") for x in hdf5_catalog.hdf5_start]
+    hdf5_end_lst = [datetime.strptime(x, "%Y-%m-%d %H:%M:%S.%f") for x in hdf5_catalog.hdf5_end]
+    filenames = list(hdf5_catalog.hdf5_name)
+    target_end_lst = [datetime.strptime(x, "%Y-%m-%d %H:%M:%S") for x in biomarker_surveys.start_local_timestamp]
 
-        ## Start of the actual code ##
-        print("creating: ", file_name)
-        print("")
-        # Create the file #
-        f_obj = HDF5NK(file=out_path, mode="a", create=True, construct=True)
-        f_obj.attributes["subject_id"] = patient_id
-        f_obj.attributes["start"] = int(time.mktime(bm_start_datetime[i].timetuple())*1e9)
-        f_obj.attributes["end"] = int(time.mktime(bm_end_datetime[i].timetuple())*1e9)
+    for target_end in target_end_lst:
+        target_start = target_end - timedelta(minutes=target_duration)
+
+        ###prepare filename###
+        start_date = target_end.date()
+        diff = (start_date-stage1_day1).days
+        day_label = "day" + str(diff+1).zfill(2)
+        time_label = target_end.strftime("%H%M%S")
+        file_name = f"sub-{subject_id}_ses-stage1_task-survey_acq-{day_label}_run-{time_label}_ieeg.h5" #get file name ready
+        file_out  = pathlib.Path(out_dir, file_name)
+        ######################
+
+        if file_out.is_file()==True:
+            print(f"{file_name} was already created and saved in {out_dir}")
+            print("")
+            print("Checking next files...")
+            print("")
+
+        if file_out.is_file()==False:
+            #find files to merge 
+            for start, end, fn in zip(hdf5_start_lst, hdf5_end_lst, filenames):
+                if (target_start>=start) & (target_start<=end):
+                    start_idx = filenames.index(fn)
+                if (target_end>=start) & (target_end<=end):
+                    end_idx = filenames.index(fn)
+            files_to_merge = filenames[start_idx:end_idx+1]
+            files_to_merge.sort()
+
+            #merge timeseries and retrieve ieeg metadata
+            timestamps_merged = []
+            data_merged = []
+            for fn in files_to_merge:
+                f = os.path.join(hdf5_dir, fn)
+                hdf5_f = h5py.File(f, "r")
+                data = np.array(hdf5_f["intracranialEEG"])
+                data_merged = data_merged + list(data)
+                timetamps = np.array(hdf5_f["intracranialEEG_time_axis"])
+                timestamps_merged = timestamps_merged + list(timetamps)
+                ieeg_channellabels =  np.array(hdf5_f["intracranialEEG_channellabel_axis"])
+                ieeg_channelcoord = np.array(hdf5_f["intracranialEEG_channelcoord_axis"])
+                ieeg_channelcount = hdf5_f["intracranialEEG"].attrs["channel_count"]
+                ieeg_lowpass = hdf5_f["intracranialEEG"].attrs["filter_lowpass"]
+                ieeg_highpass = hdf5_f["intracranialEEG"].attrs["filter_highpass"]
+                ieeg_samplerate = hdf5_f["intracranialEEG_time_axis"].attrs["sample_rate"]
+                ieeg_timezone = hdf5_f["intracranialEEG_time_axis"].attrs["time_zone"]
+                hdf5_f.close()
+                del hdf5_f
+
+            #retrieve original datetimes
+            original_datetimes = []
+            for timestamp in timestamps_merged:
+                original_datetimes.append(get_original_dt(ref_date, timestamp))
+
+            #find closest datetime in time array to survey start, this will be the actual end of recording
+            actual_end = min(original_datetimes, key=lambda x: abs(x - target_end))
+            actual_start = actual_end - timedelta(minutes=target_duration)
+            datetime_array = original_datetimes[original_datetimes.index(actual_start):original_datetimes.index(actual_end)]
+            
+            data_array = np.array(data_merged[original_datetimes.index(actual_start):original_datetimes.index(actual_end)])
+            timestamps_array = np.array([int(datetime.timestamp(x)*1e9) for x in datetime_array])
+            ieeg_start = int(datetime.timestamp(actual_start)*1e9)
+            ieeg_end = int(datetime.timestamp(actual_end)*1e9)
+
+            print("Creating: ", file_name)
+            print("")
+            # Create the file #
+            f_obj = HDF5NK(file=file_out, mode="a", create=True, construct=True)
+            f_obj.attributes["subject_id"] = subject_id
+            f_obj.attributes["start"] = ieeg_start
+            f_obj.attributes["end"] = ieeg_end
     
-        file_data_ieeg = f_obj["data_ieeg"]
-        file_data_ieeg.append(new_data_array, component_kwargs={"timeseries": {"data": new_time_array}})
-        file_data_ieeg.axes[1]["channellabel_axis"].append(concat_data["channellabel_axis"])
-        file_data_ieeg.axes[1]["channelcoord_axis"].append(concat_data["channelcoord_axis"])
+            file_data_ieeg = f_obj["data_ieeg"]
+            file_data_ieeg.append(data_array, component_kwargs={"timeseries": {"data": timestamps_array}})
+            file_data_ieeg.axes[1]["channellabel_axis"].append(ieeg_channellabels)
+            if elecscoord_on == True:
+                file_data_ieeg.axes[1]["channelcoord_axis"].append(ieeg_channelcoord)
 
-        file_data_ieeg.attributes["filter_lowpass"]  = concat_data["filter_lowpass"]
-        file_data_ieeg.attributes["filter_highpass"] = concat_data["filter_highpass"]
-        file_data_ieeg.attributes["channel_count"]   = concat_data["channel_count"]
-        file_data_ieeg.axes[0]["time_axis"].attributes["sample_rate"] = concat_data["sample_rate"] 
-        file_data_ieeg.axes[0]["time_axis"].attributes["time_zone"] = concat_data["time_zone"] 
+            file_data_ieeg.attributes["filter_lowpass"]  = ieeg_lowpass
+            file_data_ieeg.attributes["filter_highpass"] = ieeg_highpass
+            file_data_ieeg.attributes["channel_count"]   = ieeg_channelcount
+            file_data_ieeg.axes[0]["time_axis"].attributes["sample_rate"] = ieeg_samplerate 
+            file_data_ieeg.axes[0]["time_axis"].attributes["time_zone"] = ieeg_timezone 
 
-        print("File after appending:")
-        print("")
-        print("ieeg data size: ", f_obj["data_ieeg"].shape)
-        print("ieeg time axis size: ", f_obj["data_ieeg"].axes[0]["time_axis"].shape)
-    #print("ieeg channel labels axis size: ", f_obj["data_ieeg"].axes[1]["channellabel_axis"].shape)
-    #print("ieeg channel coordinates axis size: ", f_obj["data_ieeg"].axes[1]["channelcoord_axis"].shape)
-    #print("f_obj['data_ieeg'].axes[1]['channellabel_axis']: ", f_obj["data_ieeg"].axes[1]["channellabel_axis"][...])
-        print("")
+            print("File after appending:")
+            print("ieeg data size: ", f_obj["data_ieeg"].shape)
+            print("ieeg time axis size: ", f_obj["data_ieeg"].axes[0]["time_axis"].shape)
+            print("")
+            print(f"{file_name} was created and saved in {out_dir}")
+            print("Checking next files...")
+            print("")
+            #print(f"File Exists: {file_out.is_file()}")
+            #print(f"File is Openable: {HDF5NK.is_openable(out_path)}")
+            #print("")
 
-    # After closing check if the file exists #
-        print(f"File Exists: {out_path.is_file()}")
-        print(f"File is Openable: {HDF5NK.is_openable(out_path)}")
-        print("")
+            f_obj.close()
 
-        f_obj.close()
-
-
+    print("All files in queue created!")
+    print("")
 """End of code
 
 """

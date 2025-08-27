@@ -17,6 +17,8 @@ import pytz
 from pytz import timezone
 import h5py
 import ast
+import redcap
+from redcap import Project
 
 # Third-Party Packages #
 from nkhdf5 import hdf5nk
@@ -26,23 +28,35 @@ HDF5NK = hdf5nk.HDF5NK_0_1_0
 
 # Main #
 if __name__ == "__main__":
-    # Input Parameters  
+    # User-specified inputs  
     subject_id  = "PR07"
-    catalogs_dir = f"/data_store0/presidio/nihon_kohden/{subject_id}/catalogs"
-    out_dir = f"/data_store0/presidio/nihon_kohden/{subject_id}/nkhdf5"
-    hdf5_catalog = pd.read_csv(f"{catalogs_dir}/sub-{subject_id}_hdf5-catalog.csv")
-    redcap = pd.read_csv(f"{catalogs_dir}/sub-{subject_id}_surveys-catalog.csv")
-    biomarker_idxs = [record_id for record_id, condition in zip(redcap.record_id, redcap.condition) if "Biomarker" in condition]
-    biomarker_surveys = redcap.loc[redcap.record_id.isin(biomarker_idxs)].reset_index(drop=True)
+    #out_dir = f"/data_store2/presidio/nihon_kohden/{subject_id}/biomarker/ieeg" #6-min HDF5 files will be stored here!
+    out_dir = f"/userdata/dastudillo/patient_data" #6-min HDF5 files will be stored here!
+    catalogs_dir = f"/data_store2/presidio/nihon_kohden/{subject_id}/catalogs" 
+    hdf5_catalog = pd.read_csv(f"{catalogs_dir}/sub-{subject_id}_hdf5-catalog.csv") #HDF5 files metadata, this CSV is created after initial EDF-HDF5 conversion
+    
+    project_records = pd.read_csv(f"{catalogs_dir}/sub-{subject_id}_redcap-surveys.csv")#This has to be exported from REDCAP, or you can use API below but it might halt
+    surveys_start_times = list(project_records.start_local_timestamp.dropna())
 
-    elecscoord_on = False
-
-    with open(f"/userdata/dastudillo/subjects.json", "r") as f: #stored in user's directory, not part of repo files
+    ##Get self-rated surveys from redcap using API##
+#    redcap_tokens = "/userdata/dastudillo/keys/redcap_api.json" #THIS IS PERSONAL, EDIT CODE BELOW ACCORDINGLY
+#    with open(redcap_tokens, "r") as f: #stored in user's directory, not part of repo files
+#        tokens = json.load(f)
+#    token = tokens[subject_id]["stage1"]
+#    api_url = "https://redcap.ucsf.edu/api/"
+#    project = Project(api_url, token)
+#    project_records = project.export_records(format_type="df").reset_index()
+#    surveys_start_times = list(project_records.start_local_timestamp.dropna())
+    ################################################
+    
+    ##Get path to HDF5 files converted from EDF files and relevant dates for file name and timestamps retrieval
+    with open(f"/userdata/dastudillo/keys/subjects.json", "r") as f: #stored in user's directory, not part of repo files
         subjects = json.load(f)
     hdf5_dir = subjects[subject_id]["BIDS_raw_stage1"] #where HDF5 files are stored
     ref_date = datetime.strptime(subjects[subject_id]["consent_date"], "%Y-%m-%d") #use to retrieve original timestamps
     stage1_day1 = datetime.strptime(subjects[subject_id]["stage1_day1"], "%Y-%m-%d").date() #for file naming, this date sets "day01"
     
+    ##custom function to retrieve original timestamps from deidentified hdf5 files
     def get_original_dt(ref_dt, norm_t):
         #ref_dt is naive datetime object representing local reference date
         #norm_t is normalized/deidentified timestamp coming from hdf5 file
@@ -56,7 +70,7 @@ if __name__ == "__main__":
     hdf5_start_lst = [datetime.strptime(x, "%Y-%m-%d %H:%M:%S.%f") for x in hdf5_catalog.hdf5_start]
     hdf5_end_lst = [datetime.strptime(x, "%Y-%m-%d %H:%M:%S.%f") for x in hdf5_catalog.hdf5_end]
     filenames = list(hdf5_catalog.hdf5_name)
-    target_end_lst = [datetime.strptime(x, "%Y-%m-%d %H:%M:%S") for x in biomarker_surveys.start_local_timestamp]
+    target_end_lst = [datetime.strptime(x, "%Y-%m-%d %H:%M:%S") for x in surveys_start_times]
 
     for target_end in target_end_lst:
         target_start = target_end - timedelta(minutes=target_duration)
@@ -132,7 +146,7 @@ if __name__ == "__main__":
             file_data_ieeg = f_obj["data_ieeg"]
             file_data_ieeg.append(data_array, component_kwargs={"timeseries": {"data": timestamps_array}})
             file_data_ieeg.axes[1]["channellabel_axis"].append(ieeg_channellabels)
-            if elecscoord_on == True:
+            if len(ieeg_channelcoord)!=0:
                 file_data_ieeg.axes[1]["channelcoord_axis"].append(ieeg_channelcoord)
 
             file_data_ieeg.attributes["filter_lowpass"]  = ieeg_lowpass

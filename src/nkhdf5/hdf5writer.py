@@ -1,7 +1,7 @@
 """hdf5writer.py
 By providing a list of file paths, converts an EDF file to HDF5 file
 
-v3.0
+v4.0
 
 """
 
@@ -28,7 +28,7 @@ from edfreader import get_meastimestamp, edf_reader, normalize_dates
 # Main #
 if __name__ == "__main__":
     ## User-specified inputs
-    subject_id  = "PR04"
+    subject_id  = "PR07"
 
     with open(f"/userdata/dastudillo/keys/subjects.json", "r") as f: #stored in user's directory, not part of repo files
         subjects = json.load(f)
@@ -37,13 +37,14 @@ if __name__ == "__main__":
     outdir = subjects[subject_id]["BIDS_raw_stage1"] #directory where HDF5 files will be store
     stage1_day1 = datetime.strptime(subjects[subject_id]["stage1_day1"], "%Y-%m-%d").date() #for file naming, this date sets "day01"
 
-    elecscoor_on = True #choose if you want to add electrode coordinates 
+    elecscoor_on = True #choose if you want to add electrode coordinates (you must know the path to files with coordinates)
     elecscoor_file = subjects[subject_id]["eleccoor_file"] #file containing electrodes coordinates
 
     normalize_dates_on = True #choose if you want timestamps deidentified (keep local time, normalize date to subject's consent date)
-    ref_date = datetime.strptime(subjects[subject_id]["consent_date"], "%Y-%m-%d")  #add consent date as reference to normalize dates, comment out if above is false
+    if normalize_dates_on==True:
+        ref_date = datetime.strptime(subjects[subject_id]["consent_date"], "%Y-%m-%d")  #add consent date as reference to normalize dates
 
-    ## Extract list of EDF files stored in directory
+    ## Extract list of all EDF files stored in directory
     edf_files = sorted(filter(lambda x: True if "edf" in x else False, os.listdir(edf_dir)))
 
     ## Start of actual code, loop through edf files
@@ -94,7 +95,7 @@ if __name__ == "__main__":
             chanlabs_ekg_array = np.array([k for k,v in zip(edf_contents["edf_chanlabels_bytes"], edf_contents["edf_chantypes"]) if v == "EKG"], dtype = h5py.special_dtype(vlen=str))
             chanlabs_ttl_array = np.array([k for k,v in zip(edf_contents["edf_chanlabels_bytes"], edf_contents["edf_chantypes"]) if v == "TTL"], dtype = h5py.special_dtype(vlen=str))
 
-            ### Create the file
+            ### Create HDF5 file
             print("Creating HDF5 file...")
             print("")
             f_obj = HDF5NK(file=file_out, mode="a", create=True, construct=True)
@@ -104,58 +105,63 @@ if __name__ == "__main__":
             
             print("Writing ieeg data...")
             print("")
+
+            #### INTRACRANIAL EEG
             file_data_ieeg = f_obj["data_ieeg"]
-            file_data_ieeg.append(ieeg_array, component_kwargs={"timeseries": {"data": time_array_unix}})
-            file_data_ieeg.axes[1]["channellabel_axis"].append(chanlabs_ieeg_array)
+            file_data_ieeg.append(ieeg_array, component_kwargs={"timeseries": {"data": time_array_unix}}) #add timeseries
+            file_data_ieeg.axes[1]["channellabel_axis"].append(chanlabs_ieeg_array) #add channel labels
 
             if elecscoor_on == True:
                 elecscoor_mat = scipy.io.loadmat(elecscoor_file) # Extract electrodes coordinates (only for depth electrodes, data_ieeg)
                 elecscoor = elecscoor_mat["elecmatrix"]
-                file_data_ieeg.axes[1]["channelcoord_axis"].append(elecscoor)
+                file_data_ieeg.axes[1]["channelcoord_axis"].append(elecscoor) #add channel coordinates
 
-            file_data_ieeg.attributes["filter_lowpass"]  = edf_contents["edf_lowpass"]
-            file_data_ieeg.attributes["filter_highpass"] = edf_contents["edf_highpass"]
-            file_data_ieeg.attributes["channel_count"]   = ieeg_array.shape[1]
-            file_data_ieeg.axes[0]["time_axis"].attrs["sample_rate"] = edf_contents["edf_sfreq"]
-            file_data_ieeg.axes[0]["time_axis"].attrs["time_zone"] = edf_contents["edf_timezone"]
-
+            file_data_ieeg.attributes["filter_lowpass"]  = edf_contents["edf_lowpass"] #add lowpass frequency
+            file_data_ieeg.attributes["filter_highpass"] = edf_contents["edf_highpass"] #add highpass frequency
+            file_data_ieeg.attributes["channel_count"]   = ieeg_array.shape[1] #add channel count
+            file_data_ieeg.axes[0]["time_axis"].attrs["sample_rate"] = edf_contents["edf_sfreq"] #add sampling frequency
+            file_data_ieeg.axes[0]["time_axis"].attrs["time_zone"] = edf_contents["edf_timezone"] #add time zone
+            
+            #### SCALP EEG 
             if len(scalpeeg_array)!=0:
                 print("Writing scalp eeg data...")
                 print("")
-                file_data_scalpeeg = f_obj["data_scalpeeg"]
-                file_data_scalpeeg.append(scalpeeg_array, component_kwargs={"timeseries": {"data": time_array_unix}})
-                file_data_scalpeeg.axes[1]["channellabel_axis"].append(chanlabs_scalpeeg_array)
+                file_data_scalpeeg = f_obj["data_scalpeeg"] 
+                file_data_scalpeeg.append(scalpeeg_array, component_kwargs={"timeseries": {"data": time_array_unix}}) #add timeseries
+                file_data_scalpeeg.axes[1]["channellabel_axis"].append(chanlabs_scalpeeg_array) #add channel labels
 
-                file_data_scalpeeg.attributes["filter_lowpass"]  = edf_contents["edf_lowpass"]
-                file_data_scalpeeg.attributes["filter_highpass"] = edf_contents["edf_highpass"]
-                file_data_scalpeeg.attributes["channel_count"]   = scalpeeg_array.shape[1]
-                file_data_scalpeeg.axes[0]["time_axis"].attrs["sample_rate"] = edf_contents["edf_sfreq"]
-                file_data_scalpeeg.axes[0]["time_axis"].attrs["time_zone"] = edf_contents["edf_timezone"]
-
+                file_data_scalpeeg.attributes["filter_lowpass"]  = edf_contents["edf_lowpass"] #add lowpass frequency
+                file_data_scalpeeg.attributes["filter_highpass"] = edf_contents["edf_highpass"] #add highpass frequency
+                file_data_scalpeeg.attributes["channel_count"]   = scalpeeg_array.shape[1] #add channel count
+                file_data_scalpeeg.axes[0]["time_axis"].attrs["sample_rate"] = edf_contents["edf_sfreq"] #add sampling frequency
+                file_data_scalpeeg.axes[0]["time_axis"].attrs["time_zone"] = edf_contents["edf_timezone"] #add time zone
+            
+            #### EKG
             if len(ekg_array)!=0:
                 print("Writing ekg data...")
                 print("")
                 file_data_ekg = f_obj["data_ekg"]
-                file_data_ekg.append(ekg_array, component_kwargs={"timeseries": {"data": time_array_unix}})
-                file_data_ekg.axes[1]["channellabel_axis"].append(chanlabs_ekg_array)
+                file_data_ekg.append(ekg_array, component_kwargs={"timeseries": {"data": time_array_unix}}) #add timeseries
+                file_data_ekg.axes[1]["channellabel_axis"].append(chanlabs_ekg_array) #add channel labels
 
-                file_data_ekg.attributes["filter_lowpass"]  = edf_contents["edf_lowpass"]
-                file_data_ekg.attributes["filter_highpass"] = edf_contents["edf_highpass"]
-                file_data_ekg.attributes["channel_count"]   = ekg_array.shape[1]
-                file_data_ekg.axes[0]["time_axis"].attrs["sample_rate"] = edf_contents["edf_sfreq"]
-                file_data_ekg.axes[0]["time_axis"].attrs["time_zone"] = edf_contents["edf_timezone"]
-
+                file_data_ekg.attributes["filter_lowpass"]  = edf_contents["edf_lowpass"] #add lowpass frequency
+                file_data_ekg.attributes["filter_highpass"] = edf_contents["edf_highpass"] #add highpass frequency
+                file_data_ekg.attributes["channel_count"]   = ekg_array.shape[1] #add channel count
+                file_data_ekg.axes[0]["time_axis"].attrs["sample_rate"] = edf_contents["edf_sfreq"] #add sampling frequency
+                file_data_ekg.axes[0]["time_axis"].attrs["time_zone"] = edf_contents["edf_timezone"] #add time zone
+            
+            #### DC CHANNELS
             if len(ttl_array)!=0:
                 print("Writing DC channels data...")
                 file_data_ttl = f_obj["data_ttl"]
-                file_data_ttl.append(ttl_array, component_kwargs={"timeseries": {"data": time_array_unix}})
-                file_data_ttl.axes[1]["channellabel_axis"].append(chanlabs_ttl_array)
+                file_data_ttl.append(ttl_array, component_kwargs={"timeseries": {"data": time_array_unix}}) #add timeseries
+                file_data_ttl.axes[1]["channellabel_axis"].append(chanlabs_ttl_array) #add channel labels
 
-                file_data_ttl.attributes["filter_lowpass"]  = edf_contents["edf_lowpass"]
-                file_data_ttl.attributes["filter_highpass"] = edf_contents["edf_highpass"]
-                file_data_ttl.attributes["channel_count"]   = ttl_array.shape[1]
-                file_data_ttl.axes[0]["time_axis"].attrs["sample_rate"] = edf_contents["edf_sfreq"]
-                file_data_ttl.axes[0]["time_axis"].attrs["time_zone"] = edf_contents["edf_timezone"]
+                file_data_ttl.attributes["filter_lowpass"]  = edf_contents["edf_lowpass"] #add lowpass frequency
+                file_data_ttl.attributes["filter_highpass"] = edf_contents["edf_highpass"] #add highpass frequency
+                file_data_ttl.attributes["channel_count"]   = ttl_array.shape[1] #add channel count
+                file_data_ttl.axes[0]["time_axis"].attrs["sample_rate"] = edf_contents["edf_sfreq"] #add sampling frequency
+                file_data_ttl.axes[0]["time_axis"].attrs["time_zone"] = edf_contents["edf_timezone"] #add time zone
 
             print("")
             print(f"{edf_file} saved as: ", file_name)

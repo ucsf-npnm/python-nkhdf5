@@ -21,8 +21,8 @@ from edfio import read_edf
 edf_maxduration = 300
 
 #Define common labels for channel type
-ieeg_chan = ["OFC", "SGC", "RA", "LA", "RH", "LH", "VC"] #up to PR06
-#ieeg_chan = ["OFC", "SGC", "RA", "LA", "RH", "LH", "NAc", "BNS", "RMD", "LMD"] #PR07 onwards
+#ieeg_chan = ["OFC", "SGC", "RA", "LA", "RH", "LH", "VC"] #up to PR06
+ieeg_chan = ["OFC", "SGC", "RA", "LA", "RH", "LH", "NAc", "BNS", "RMD", "LMD"] #PR07 onwards
 dc_chan   = ["DC"]
 ekg_chan  = ["EKG", "EOG"] #todo: create separate variables for EOG in the future, for now pooled with EKG
 emg_chan  = ["EMG"]

@@ -30,8 +30,7 @@ HDF5NK = hdf5nk.HDF5NK_0_1_0
 if __name__ == "__main__":
     # User-specified inputs  
     subject_id  = "PR07"
-    #out_dir = f"/data_store2/presidio/nihon_kohden/{subject_id}/biomarker/ieeg" #6-min HDF5 files will be stored here!
-    out_dir = f"/userdata/dastudillo/patient_data" #6-min HDF5 files will be stored here!
+    out_dir = f"/data_store2/presidio/nihon_kohden/{subject_id}/ieeg_h5" #6-min HDF5 files will be stored here! USE LOCAL DIR IF YOU ARE TESTING FILES
     catalogs_dir = f"/data_store2/presidio/nihon_kohden/{subject_id}/catalogs" 
     hdf5_catalog = pd.read_csv(f"{catalogs_dir}/sub-{subject_id}_hdf5-catalog.csv") #HDF5 files metadata, this CSV is created after initial EDF-HDF5 conversion
     

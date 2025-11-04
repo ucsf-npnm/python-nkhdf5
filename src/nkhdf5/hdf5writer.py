@@ -28,7 +28,7 @@ from edfreader import get_meastimestamp, edf_reader, normalize_dates
 # Main #
 if __name__ == "__main__":
     ## User-specified inputs
-    subject_id  = "PR07"
+    subject_id  = "PR09"
 
     with open(f"/userdata/dastudillo/keys/subjects.json", "r") as f: #stored in user's directory, not part of repo files
         subjects = json.load(f)

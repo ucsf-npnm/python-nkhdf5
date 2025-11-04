@@ -26,7 +26,7 @@ ieeg_chan = ["OFC", "SGC", "RA", "LA", "RH", "LH", "NAc", "BNS", "RMD", "LMD"] #
 dc_chan   = ["DC"]
 ekg_chan  = ["EKG", "EOG"] #todo: create separate variables for EOG in the future, for now pooled with EKG
 emg_chan  = ["EMG"]
-#remove_chan = "BP1" #PR07
+#channels_to_remove = ["BP1"] #PR07
 
 def get_meastimestamp(files_dir, filename):
     error_files = []
@@ -57,19 +57,24 @@ def edf_reader(files_dir, filename, file_start):
     edf_timezone = "US/Pacific"
     edf_lowpass = edf_obj.info["lowpass"] #low pass filter
     edf_highpass = edf_obj.info["highpass"] #high pass filter
-    edf_nchan = edf_obj.info["nchan"] #number of total channels
 
+    edf_nchan = edf_obj.info["nchan"] #number of channels
     channel_labels = [ch.replace("POL ", "").replace("-Ref", "").replace(" ", "") for ch in edf_obj.ch_names]
     edf_data_array, edf_time_array = edf_obj[:,:]
 
-    #####For PR07 only#####
-    #raw_channel_labels = [ch.replace("POL ", "").replace("-Ref", "").replace(" ", "") for ch in edf_obj.ch_names]
-    #raw_edf_data_array, edf_time_array = edf_obj[:,:]
-
-    #remove_idx = raw_channel_labels.index(remove_chan)
-    #edf_data_array = np.delete(raw_edf_data_array, remove_idx, axis=0)
-    #channel_labels = raw_channel_labels.copy()
-    #channel_labels.remove(remove_chan)
+    #####Remove channels if needed#####
+#    raw_channel_labels = [ch.replace("POL ", "").replace("-Ref", "").replace(" ", "") for ch in edf_obj.ch_names]
+#    raw_edf_data_array, edf_time_array = edf_obj[:,:]
+#    remove_idx = []
+#    for ch in channels_to_remove:
+#        remove_idx.append(raw_channel_labels.index(ch))
+#
+#    edf_data_array = np.delete(raw_edf_data_array, remove_idx, axis=0)
+#    channel_labels = raw_channel_labels.copy()
+#    for ch in channels_to_remove:
+#        channel_labels.remove(ch)
+#
+#    edf_nchan = len(channel_labels)
     #######################
 
     #Remove buffer period from data arrasy if edf_duration is over edf_maxduration
@@ -173,4 +178,6 @@ print("")
 print("EDF reader is ready to use")
 print("")
 
-"""End of code"""
+"""
+End of code
+"""

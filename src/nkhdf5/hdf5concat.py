@@ -33,7 +33,7 @@ if __name__ == "__main__":
     out_dir = f"/data_store2/presidio/nihon_kohden/{subject_id}/nkhdf5" #6-min HDF5 files will be stored here! USE LOCAL DIR IF YOU ARE TESTING FILES
     catalogs_dir = f"/data_store2/presidio/nihon_kohden/{subject_id}/catalogs" 
     hdf5_catalog = pd.read_csv(f"{catalogs_dir}/sub-{subject_id}_hdf5-catalog.csv") #HDF5 files metadata, this CSV is created after initial EDF-HDF5 conversion
-    
+
     ##Get self-rated surveys from redcap using API##
     redcap_tokens = "/userdata/dastudillo/keys/redcap_api.json" #THIS IS PERSONAL, EDIT CODE BELOW ACCORDINGLY
     with open(redcap_tokens, "r") as f: #stored in user's directory, not part of repo files

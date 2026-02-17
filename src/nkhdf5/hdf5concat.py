@@ -30,7 +30,8 @@ HDF5NK = hdf5nk.HDF5NK_0_1_0
 if __name__ == "__main__":
     # User-specified inputs  
     subject_id  = "PR07"
-    out_dir = f"/data_store2/presidio/nihon_kohden/{subject_id}/ieeg_h5" #6-min HDF5 files will be stored here! USE LOCAL DIR IF YOU ARE TESTING FILES
+    #out_dir = f"/data_store2/presidio/nihon_kohden/{subject_id}/ieeg_h5" #6-min HDF5 files will be stored here! USE LOCAL DIR IF YOU ARE TESTING FILES
+    out_dir = f"/userdata/akhambhati/patient_data/{subject_id}/ieeg_h5" #6-min HDF5 files will be stored here! USE LOCAL DIR IF YOU ARE TESTING FILES
     catalogs_dir = f"/data_store2/presidio/nihon_kohden/{subject_id}/catalogs" 
     hdf5_catalog = pd.read_csv(f"{catalogs_dir}/sub-{subject_id}_hdf5-catalog.csv") #HDF5 files metadata, this CSV is created after initial EDF-HDF5 conversion
     
@@ -49,7 +50,8 @@ if __name__ == "__main__":
     ################################################
     
     ##Get path to HDF5 files converted from EDF files and relevant dates for file name and timestamps retrieval
-    with open(f"/userdata/dastudillo/keys/subjects.json", "r") as f: #stored in user's directory, not part of repo files
+    #with open(f"/userdata/dastudillo/keys/subjects.json", "r") as f: #stored in user's directory, not part of repo files
+    with open(f"/home/akhambhati/.config/subjects.json", "r") as f: #stored in user's directory, not part of repo files
         subjects = json.load(f)
     hdf5_dir = subjects[subject_id]["BIDS_raw_stage1"] #where HDF5 files are stored
     ref_date = datetime.strptime(subjects[subject_id]["consent_date"], "%Y-%m-%d") #use to retrieve original timestamps

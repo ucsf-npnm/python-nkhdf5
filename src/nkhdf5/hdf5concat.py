@@ -1,6 +1,6 @@
 """hdf5concat.py
 
-Creates new 6-min duration h5 file preceding each biomarker survey, accounts for duplicated timestamps
+Creates new 6-min duration h5 file preceding each survey.
 
 """
 
@@ -29,29 +29,25 @@ HDF5NK = hdf5nk.HDF5NK_0_1_0
 # Main #
 if __name__ == "__main__":
     # User-specified inputs  
-    subject_id  = "PR07"
-    #out_dir = f"/data_store2/presidio/nihon_kohden/{subject_id}/ieeg_h5" #6-min HDF5 files will be stored here! USE LOCAL DIR IF YOU ARE TESTING FILES
-    out_dir = f"/userdata/akhambhati/patient_data/{subject_id}/ieeg_h5" #6-min HDF5 files will be stored here! USE LOCAL DIR IF YOU ARE TESTING FILES
+    subject_id  = "PR09"
+    out_dir = f"/data_store2/presidio/nihon_kohden/{subject_id}/nkhdf5" #6-min HDF5 files will be stored here! USE LOCAL DIR IF YOU ARE TESTING FILES
     catalogs_dir = f"/data_store2/presidio/nihon_kohden/{subject_id}/catalogs" 
     hdf5_catalog = pd.read_csv(f"{catalogs_dir}/sub-{subject_id}_hdf5-catalog.csv") #HDF5 files metadata, this CSV is created after initial EDF-HDF5 conversion
-    
-    project_records = pd.read_csv(f"{catalogs_dir}/sub-{subject_id}_redcap-surveys.csv")#This has to be exported from REDCAP, or you can use API below but it might halt
-    surveys_start_times = list(project_records.start_local_timestamp.dropna())
 
     ##Get self-rated surveys from redcap using API##
-#    redcap_tokens = "/userdata/dastudillo/keys/redcap_api.json" #THIS IS PERSONAL, EDIT CODE BELOW ACCORDINGLY
-#    with open(redcap_tokens, "r") as f: #stored in user's directory, not part of repo files
-#        tokens = json.load(f)
-#    token = tokens[subject_id]["stage1"]
-#    api_url = "https://redcap.ucsf.edu/api/"
-#    project = Project(api_url, token)
-#    project_records = project.export_records(format_type="df").reset_index()
-#    surveys_start_times = list(project_records.start_local_timestamp.dropna())
+    redcap_tokens = "/userdata/dastudillo/keys/redcap_api.json" #THIS IS PERSONAL, EDIT CODE BELOW ACCORDINGLY
+    with open(redcap_tokens, "r") as f: #stored in user's directory, not part of repo files
+        tokens = json.load(f)
+    token = tokens[subject_id]["stage1"]
+    api_url = "https://redcap.ucsf.edu/api/"
+    project = Project(api_url, token)
+    project_records = project.export_records(format_type="df").dropna(subset="start_local_timestamp").reset_index(drop=True)
+    surveys_start_times = list(project_records.start_local_timestamp) #all surveys
+    #surveys_start_times = list(project_records.loc[project_records.trial_id=="Biomarker"].start_local_timestamp) #biomarker surveys only
     ################################################
     
     ##Get path to HDF5 files converted from EDF files and relevant dates for file name and timestamps retrieval
-    #with open(f"/userdata/dastudillo/keys/subjects.json", "r") as f: #stored in user's directory, not part of repo files
-    with open(f"/home/akhambhati/.config/subjects.json", "r") as f: #stored in user's directory, not part of repo files
+    with open(f"/userdata/dastudillo/keys/subjects.json", "r") as f: #stored in user's directory, not part of repo files
         subjects = json.load(f)
     hdf5_dir = subjects[subject_id]["BIDS_raw_stage1"] #where HDF5 files are stored
     ref_date = datetime.strptime(subjects[subject_id]["consent_date"], "%Y-%m-%d") #use to retrieve original timestamps
@@ -163,9 +159,6 @@ if __name__ == "__main__":
             print(f"{file_name} was created and saved in {out_dir}")
             print("Checking next files...")
             print("")
-            #print(f"File Exists: {file_out.is_file()}")
-            #print(f"File is Openable: {HDF5NK.is_openable(out_path)}")
-            #print("")
 
             f_obj.close()
 

@@ -8,3 +8,9 @@
 /docs/_build/
 /src/*.egg-info/
 __pycache__/
+.DS_Store
+._.DS_Store
+examples/xltekhdf5writertask.py
+src/nkhdf5/ocd_edfreader.py
+src/nkhdf5/ocd_hdf5concat.py
+src/nkhdf5/ocd_hdf5writer.py

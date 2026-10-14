@@ -322,10 +322,10 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------
     # User-specified inputs (edit this block only)
     subject_id = "PR10" # PRESIDIO subject, everything in .env file and config.py is coded based on this variable
-    out_dir = "/scratch/dastudillo" # output directory, new file(s) will be written here.
-    start_period_list = ["2026-08-22 10:27:34.000000"] # list the start of the file(s) you want to generate.
-    end_period_list = ["2026-08-22 10:27:54.380000"] # list the end of the file(s) you want to generate, should match order from start_period_list.
-    task_label = "test-bids" # Add descriptive label for file naming, e.g. "efficacy-LNAc4-LNAc5-6.0mA100Hz", "EP5-3.0mA1Hz", "biomarker-survey"
+    out_dir = "/path/to/output/directory" # Output file(s) will be written here.
+    start_period_list = ["2026-08-22 10:27:34.450000"] # List the start of the file(s) you want to generate, should be in format 'YYYY-MM-DD HH:MM:SS.f'
+    end_period_list = ["2026-08-22 10:27:54.380000"] # List the end of the file(s) you want to generate, should be in format 'YYYY-MM-DD HH:MM:SS.f'
+    task_label = "test" # Add descriptive label for file naming, e.g. "efficacy-LNAc4-LNAc5-6.0mA100Hz", "EP5-3.0mA1Hz", "biomarker-survey"
     time_label = None # USE ONLY WHEN: 1) generating one new file and 2) when you want a specific time in your file name, otherwise it will take the start time of the new file
     # # Besides intracranial EEG, what other channel types do you want to include in files?
     incl_dc = False # adds DC dataset

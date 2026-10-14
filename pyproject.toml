@@ -26,6 +26,7 @@ hdf5objects = {git = "git@github.com:FongAnthonyM/python-hdf5objects.git", rev =
 pyedflib = "^0.1.40"
 edfio = "^0.4.8"
 pycap = "^2.7.0"
+python-dotenv = "^1.2.2"
 
 
 [tool.poetry.dev-dependencies]

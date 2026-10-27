@@ -21,21 +21,77 @@
 [pre-commit]: https://github.com/pre-commit/pre-commit
 [black]: https://github.com/psf/black
 
+High-performance Python processing pipeline designated to:
+* **hdf5writer.py**: Convert raw EDF files (.edf) storing continuous timeseries to BIDS-compatible HDF5 files (.h5)
+* **hdf5writer_range_from_bids.py**: Locate, slice and stitch continuous timeseries directly from BIDS-compatible HDF5 files based on time window.
+
 ## Features
 
-* `edfreader.py` : functions to read through each edf file and compile metadata into a dictionary object that will be used to create each hdf5 file.
+## Setup and Installation
 
-## Requirements
+This project uses **Poetry** for dependency management and virtual environments. Follow the steps below to set it up locally or on the server.
 
-- TODO
+### 1. Prerequisites
+Ensure you have **Python 3.8+** installed on your system.
 
-## Installation
+### 2. Install Poetry
+If you do not have Poetry installed, choose one of the methods below:
 
-You can install _NKHDF5_ via [pip] from [PyPI]:
-
-```console
-$ pip install python-nkhdf5
+#### macOS / Linux
+```bash
+curl -sSL https://install.python-poetry.org | python3 -
 ```
+
+#### Windows (PowerShell)
+```powershell
+(Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | python3 -
+```
+
+#### Alternative (Using pipx - Recommended)
+```bash
+pip install pipx
+pipx install poetry
+```
+
+> **Note:** After installation, restart your terminal and run `poetry --version` to ensure it is correctly added to your system path.
+
+### 3. Clone Repository and Environment Setup
+Clone the repository, switch to the required branch, configure your environment variables, and install dependencies:
+
+```bash
+# Clone the repository and navigate to the project directory
+git clone https://github.com/ucsf-npnm/python-nkhdf5.git
+cd python-nkhdf5/src/nkhdf5
+
+# Install project dependencies into a virtual environment
+poetry install
+
+# Switch to the v5.0 branch
+git checkout v5.0
+
+# Initialize environment variables
+cp .env.example .env
+
+# Open .env in a code editor to follow in-line comments and save your changes
+vim .env
+```
+
+### 4. Running the Project (Chang Lab Server)
+Avoid running the scripts at the command line! Instead, use the custom shell command named `submit_job` to submit scripts as jobs.
+
+Here is an example of a complete `submit_job` command, including a Poetry command wrapper that automatically targets the path to the Poetry-created virtual environment:
+
+```bash
+submit_job -q pia-batch.q -c 8 -m 10 -o /home/user/job_output.txt -n job1 -x $(poetry run which python) /home/user/my_script.py
+```
+Where:
+* `-q pia-batch.q`: Selected job queue. In general, you should only need to use pia.
+* `-c 8`: Number of cores for the job. In general, you should not request more than 8 at a time.
+* `-m 10`: Total allocated memory (in GB) for the job. In this example, 10 GB of memory is allocated.
+* `-o /home/user/job_output.txt`: Full path to printed job output. In this example, stores job output in a text file named job_output.txt inside /home/user directory.
+* `-n job1`: (Optional) Job name. In this example, sets the name of the job to job1. Use only letters, numbers and underscores.
+* `-x $(poetry run which python)`: Selected executable or environment. In this example, `$(poetry run which python)` is a command wrapper that automatically targets the path to the virtual invironment after running `poetry install` in the previous step. Alternatively, you can specify the complete path to the poetry invironment in your /home directory.
+* `/home/user/my_script.py`: The path of the script that you would like to run.
 
 ## Usage
 

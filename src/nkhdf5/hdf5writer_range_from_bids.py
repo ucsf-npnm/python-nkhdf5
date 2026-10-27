@@ -1,7 +1,11 @@
 """ hdf5writer_range_from_bids.py
 
-Create hdf5 file given a start timestamp (start_p) and an end timestamp (end_p).
-Stitches and clips directly from HDF5-BIDS files, creates files with original timestamps.
+Features:
+    - Creates hdf5 files storing raw timeseries spanning chronological windows within Stage 1 dates.
+
+    - Efficiently stitches and clips directly from HDF5-BIDS files.
+
+    - All timestamps are back to their original values (not deidentified).
 
 Created: 2026-10-10
 """
